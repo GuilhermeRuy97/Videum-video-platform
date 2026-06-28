@@ -1,0 +1,64 @@
+%%{init: {'theme': 'dark'}}%%
+flowchart TB
+    subgraph INPUT["📥 Input"]
+        phase["phase-NN-*.md\n(plan — contract)"]
+        plan["project-plan.md\n(target subproject)"]
+        decisions["decisions/\n(fixed choices)"]
+        testing["testing-guide skill\n(how to write tests)"]
+        practices["best-practices skills\n(subproject-specific)"]
+    end
+
+    subgraph PREP["🔧 Preparation"]
+        preflight["Preflight\n(branch, deps,\nplan sanity)"]
+        tasklist["Create task list\n(1 task per SI,\nDependency Map order)"]
+    end
+
+    subgraph LOOP["🔁 Loop per SI"]
+        plan_uc["1. Plan SI\n(re-read section)"]
+        implement["2. Implement\ntechnical actions"]
+        write_tests["3. Write tests\n(Tests section)"]
+        run_tests["4. Run SI tests\n(SI scope)"]
+        fix["5. Fix loop\n(max 3 attempts)"]
+        stop["6. STOP\nMove to SI-NN.X+1?"]
+    end
+
+    subgraph FINAL["✅ Final Verification"]
+        suite["Full test suite"]
+        tsc["tsc --noEmit"]
+        build["npm run build"]
+        deliv["Deliverables checklist"]
+    end
+
+    subgraph OUTPUT["📤 Output"]
+        report["Completion report"]
+    end
+
+    phase --> preflight
+    plan --> preflight
+    decisions --> preflight
+    practices --> implement
+    testing --> write_tests
+
+    preflight --> tasklist
+    tasklist --> plan_uc
+
+    plan_uc --> implement
+    implement --> write_tests
+    write_tests --> run_tests
+    run_tests --> fix
+    fix --> stop
+    stop -.next SI.-> plan_uc
+    stop -.last SI.-> suite
+
+    suite --> tsc
+    tsc --> build
+    build --> deliv
+    deliv --> report
+
+    classDef input fill:#42A5F5,stroke:#1E88E5,color:#FFF
+    classDef process fill:#FF7043,stroke:#E64A19,color:#FFF
+    classDef output fill:#66BB6A,stroke:#43A047,color:#FFF
+
+    class phase,plan,decisions,testing,practices input
+    class preflight,tasklist,plan_uc,implement,write_tests,run_tests,fix,stop,suite,tsc,build,deliv process
+    class report output
