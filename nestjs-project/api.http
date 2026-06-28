@@ -1,0 +1,120 @@
+@baseUrl = http://localhost:3000
+@contentType = application/json
+
+# Test user credentials
+@userEmail = user@example.com
+@userPassword = password123
+
+# Tokens captured automatically from login/refresh responses
+# (filled by REST Client via @name + response variables)
+@accessToken = {{login.response.body.$.access_token}}
+@refreshToken = {{login.response.body.$.refresh_token}}
+
+# Tokens obtained via email — fill in manually after checking http://localhost:8025
+@confirmationToken = <token from confirmation email>
+@resetToken = <token from reset email>
+
+
+###
+# ─────────────────────────────────────────────
+# HEALTH CHECK
+# ─────────────────────────────────────────────
+
+### GET / — check if the API is up
+GET {{baseUrl}}/
+
+
+###
+# ─────────────────────────────────────────────
+# REGISTRATION AND EMAIL CONFIRMATION
+# ─────────────────────────────────────────────
+
+### 1. Register a new user
+# After registration, check http://localhost:8025 to get the confirmation token
+POST {{baseUrl}}/auth/register
+Content-Type: {{contentType}}
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+
+### 2. Confirm email with received token
+# Paste the email token into @confirmationToken above
+GET {{baseUrl}}/auth/confirm-email?token={{confirmationToken}}
+
+### 3. Resend confirmation email
+POST {{baseUrl}}/auth/resend-confirmation
+Content-Type: {{contentType}}
+
+{
+  "email": "{{userEmail}}"
+}
+
+
+###
+# ─────────────────────────────────────────────
+# LOGIN AND TOKENS
+# ─────────────────────────────────────────────
+
+### 4. Login — access_token and refresh_token captured automatically
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: {{contentType}}
+
+{
+  "email": "{{userEmail}}",
+  "password": "{{userPassword}}"
+}
+
+
+### 5. Refresh tokens — access_token and refresh_token updated automatically
+# @name login
+POST {{baseUrl}}/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+
+###
+# ─────────────────────────────────────────────
+# AUTHENTICATED USER
+# ─────────────────────────────────────────────
+
+### 6. Authenticated user data
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{accessToken}}
+
+
+### 7. Logout — revokes all user refresh tokens
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{accessToken}}
+
+
+###
+# ─────────────────────────────────────────────
+# PASSWORD RECOVERY
+# ─────────────────────────────────────────────
+
+### 8. Request password reset
+# After requesting, check http://localhost:8025 to get the reset token
+POST {{baseUrl}}/auth/forgot-password
+Content-Type: {{contentType}}
+
+{
+  "email": "{{userEmail}}"
+}
+
+
+### 9. Reset password with received token
+# Paste the email token into @resetToken above
+POST {{baseUrl}}/auth/reset-password
+Content-Type: {{contentType}}
+
+{
+  "token": "{{resetToken}}",
+  "new_password": "new-password123"
+}
