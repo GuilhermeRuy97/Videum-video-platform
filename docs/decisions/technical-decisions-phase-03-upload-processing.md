@@ -1,7 +1,7 @@
 ---
 scope_type: phase
 related_phases: [3]
-status: pending
+status: decided
 date: 2026-07-01
 scope_description: "Backend foundation for video upload and processing: object storage, background job queue and worker topology, FFmpeg-based metadata/thumbnail extraction, unique video URL generation, large-file upload protocol, and streaming/download delivery mechanism."
 ---
@@ -48,7 +48,7 @@ _Subprojects in scope:_
 
 **Recommendation:** **Option A (MinIO)** — it is the only option consistent with the project's established convention of running every infra dependency inside Docker Compose (mirroring `db` and `mailpit`), requires no cloud credentials for any contributor, and is S3-API-compatible so a later move to AWS S3 in production is a configuration change, not a rewrite, of the already-planned `StorageService` abstraction.
 
-**Decision:** AWS S3 (managed cloud) - Option B
+**Decision:** MinIO (self-hosted, S3-compatible) - Option A
 
 ---
 
@@ -138,7 +138,7 @@ _Subprojects in scope:_
 - **Pros:** Same decoupling benefits as Option B, plus the ID is naturally sortable by creation time — useful for future chronological listings (e.g., "recently uploaded") without a separate `created_at` sort, and still opaque/unguessable enough for a public identifier.
 - **Cons:** Longer than `nanoid` (36 chars, same length as Option A's UUID). Introduces a second UUID *version* into the codebase alongside the v4 used for every PK, which is a small but real inconsistency to explain to future readers unless documented clearly.
 
-**Recommendation:** **Option A (reuse the existing UUID PK)** — for a platform with no stated requirement for short/pretty URLs, and given the draft-before-metadata sequencing already rules out title-derived slugs, reusing the PK is the only option that adds zero new columns and zero new generation/collision logic while still fully satisfying "unique URL, no conflict." Option B or C are reasonable if the team later wants shorter public URLs; either is a small additive migration since the PK is untouched either way.
+**Recommendation:** **Option C (separate `public_id` column, UUID v7)** — decoupling the public identifier from the internal PK keeps the PK strategy free to change without breaking public URLs and avoids exposing the internal key, while UUID v7's time-ordering gives chronological sortability (e.g. "recently uploaded") for free without a separate sort key — a concrete edge over both Option A (which forecloses PK changes and leaks the internal key) and Option B's random `nanoid` (which has no ordering). It follows the project's own `Channel.nickname` precedent of a dedicated public-facing field, and the draft-before-metadata sequencing rules out title-derived slugs regardless. The costs are modest and bounded: one extra column plus a uniqueness constraint, and a second UUID *version* (v7) alongside the v4 used for entity PKs — documented so future readers understand why the codebase carries both. Option A remains the zero-extra-code fallback if the team decides public/internal decoupling and chronological sortability are not worth one column; Option B is the pick if short URLs later become a requirement (UUID v7 is 36 chars).
 
 **Decision:** Separate `public_id` column generated with UUID v7 (time-ordered) - Option C
 
@@ -210,8 +210,8 @@ _Subprojects in scope:_
 
 | ID | Scope | Decision | Recommendation | Choice |
 |----|-------|----------|---------------|--------|
-| TD-01 | Backend | Object Storage Backend | A (MinIO, self-hosted) | Option B (AWS S3, managed cloud) |
-| TD-02 | Backend | Video Processing Worker Deployment Topology | B (Separate worker container, shared codebase) | _[pending]_ |
+| TD-01 | Backend | Object Storage Backend | A (MinIO, self-hosted) | Option A (MinIO, self-hosted) |
+| TD-02 | Backend | Video Processing Worker Deployment Topology | B (Separate worker container, shared codebase) | Separate worker container, shared codebase, second bootstrap entrypoint - Option B |
 | TD-03 | Backend | Video/Thumbnail Processing Library (FFmpeg Invocation) | A (Raw `child_process` wrapping system binaries) | Option A (Raw `child_process` (spawn) wrapping system FFmpeg/FFprobe binaries) |
 | TD-04 | Backend | Unique Video URL / Public Identifier Strategy | A (Reuse existing UUID PK) | Option C (Separate `public_id` column generated with UUID v7 (time-ordered)) |
 | TD-05 | Cross-layer | Large File Upload Protocol | B (Presigned direct-to-storage multipart upload) | Option B (Presigned direct-to-storage multipart upload) |
@@ -236,3 +236,4 @@ Sources consulted during research:
 - [tus-node-server — GitHub](https://github.com/tus/tus-node-server) and [tus.io](https://tus.io/) — confirms `@tus/server`'s maintained status, S3/disk/GCS store support, and protocol design (resumability, adoption by Cloudflare/Supabase/Vimeo).
 - [minio/minio-js presigned URL issues — GitHub Discussions/Issues #14709, #19067](https://github.com/minio/minio/discussions/14709) — documents known `@aws-sdk/client-s3` v3 presigned-URL signature edge cases against MinIO.
 - `docs/project-plan.md` (Phase 03 capabilities, neighboring phases), `docs/diagrams/software-arch.mermaid` (C4 container diagram), `nestjs-project/CLAUDE.md`, `.claude/skills/nestjs-best-practices/rules/micro-use-queues.md`, `.claude/skills/typeorm/rules/entity-primary-key-strategy.md`, `.claude/rules/nestjs-entities.md`, `.claude/skills/testing-guide-nestjs-project/references/external-systems.md` — internal conventions consumed as constraints throughout.
+'   
