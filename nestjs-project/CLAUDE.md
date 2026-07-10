@@ -12,7 +12,7 @@ docker compose ps   # all services must show status "running"
 
 Then verify each infrastructure service is actually ready to accept connections — not just running:
 
-- **PostgreSQL:** `docker compose exec db pg_isready -U streamtube` — expect `accepting connections`
+- **PostgreSQL:** `docker compose exec db pg_isready -U videum` — expect `accepting connections`
 
 Only start the NestJS dev server (`npm run start:dev`) when the user **explicitly** asks to run the application — never as part of "start the environment".
 
@@ -33,7 +33,11 @@ docker compose exec nestjs-api npm run start:dev
 
 Services:
 - `nestjs-api` — NestJS API, port `3000`
-- `db` — PostgreSQL 17, port `5432`, database `streamtube`, user/password `streamtube`
+- `db` — PostgreSQL 17, port `5432`, database `videum`, user/password `videum`
+- `mailpit` — SMTP + web UI (ports `1025` / `8025`)
+- `minio` — S3-compatible object storage, API `9000` / console `9001` (`minioadmin`/`minioadmin`), bucket `videos` _(Phase 03)_
+- `redis` — Redis 7, port `6379`; backs the BullMQ queues _(Phase 03)_
+- `video-worker` — separate worker process (`npm run start:worker:dev`, entry `worker/main.worker`) consuming the video-processing queue; FFmpeg is baked into the image _(Phase 03)_
 
 All verification and teardown commands run on the **host machine**:
 
@@ -42,7 +46,7 @@ All verification and teardown commands run on the **host machine**:
 curl http://localhost:3000
 
 # Verify PostgreSQL is ready (runs inside the db container)
-docker compose exec db pg_isready -U streamtube
+docker compose exec db pg_isready -U videum
 
 # Check container logs
 docker compose logs nestjs-api
@@ -78,7 +82,7 @@ npm run format                           # Prettier formatting
 ```bash
 docker compose ps
 docker compose logs nestjs-api
-docker compose exec db pg_isready -U streamtube
+docker compose exec db pg_isready -U videum
 curl http://localhost:3000
 ```
 
@@ -148,6 +152,28 @@ NestJS with standard module structure. Source lives in `src/`, compiled output i
 
 - Each domain feature gets its own module (e.g., `UsersModule`, `VideosModule`) registered in `AppModule`
 - Controllers handle HTTP routing; Services hold business logic; both are scoped to their module
+
+## Videos, Storage & Processing (Phase 03)
+
+The video upload-and-processing pipeline keeps the API out of the file byte path: clients upload directly to object storage via presigned multipart URLs and stream/download via presigned GET URLs.
+
+**Module** `src/videos/` — `Video` entity (`videos` table; internal v4 PK + public **UUID v7** `public_id` used in all client URLs; `status`: `uploading → processing → ready | failed`; unique `storage_key`; composite `(status, created_at)` index for the reconciliation sweep). `VideosController` + `VideosService`.
+
+**Endpoints** (`/videos`, all documented via `@nestjs/swagger`):
+- `POST /videos` — auth required; creates a draft and initiates a presigned multipart upload. Returns `public_id`, `upload_id`, `storage_key`, presigned `parts`.
+- `POST /videos/:publicId/complete` — owner only; finalizes the upload, verifies the object server-side (`CompleteMultipartUpload` + `HeadObject` size check), transitions `uploading → processing`, and enqueues `process-video`.
+- `GET /videos/:publicId` — **optional auth** (`@OptionalAuth()`); returns metadata + presigned Range-native `playback_url` (+ `thumbnail_url`). Anonymous/non-owner see only `ready` videos (else `404`); the owner sees any status (`playback_url: null` until `ready`).
+- `GET /videos/:publicId/download` — optional auth; `302` redirect to a presigned attachment URL. Non-`ready` → `404` for non-owners, `409 VIDEO_NOT_READY` for the owner.
+
+**Storage** `src/storage/StorageService` — the sole S3 adapter (`@aws-sdk/client-s3`, MinIO). Uses **two clients**: an internal one (`minio:9000`) for server-side ops and a presign client signing against the public endpoint (`localhost:9000`) so browser URLs resolve. Creates the bucket on boot. Exposes multipart initiate/complete, `headObject`, `downloadToFile`, `putObject`, and `getPresignedGetUrl`.
+
+**Queue & worker** (`@nestjs/bullmq` on Redis) — `AppModule` registers the connection and the `video-processing` producer. The **worker** (`src/worker/main.worker.ts`, a headless `ApplicationContext`, no HTTP) runs in the `video-worker` container and hosts:
+- `VideoProcessingProcessor` (`video-processing`) — downloads the source, runs raw `child_process` FFprobe (duration) + FFmpeg (thumbnail), uploads the thumbnail, sets `ready` (or `failed`). Idempotent (already-`ready` is a no-op).
+- `UploadReconciliationProcessor` (`upload-reconciliation`) — a repeatable `sweep-abandoned-uploads` job (registered at bootstrap via `queue.upsertJobScheduler`) rescues or fails drafts stuck in `uploading` past `ABANDONED_UPLOAD_TIMEOUT_MS`.
+
+The worker's `TypeOrmModule.forFeature` must register `[Video, User, Channel]` — TypeORM builds metadata for the whole connected relation graph, so `User`'s `Channel` inverse is required even though the worker only queries `Video`.
+
+**Config** namespaces `storage.config.ts` / `queue.config.ts` (Joi-validated, dev defaults match `compose.yaml`; no `.env` change needed). Storage/queue integration tests run against the real MinIO + Redis + DB — do not mock what Compose actually runs.
 
 ## Code Conventions
 

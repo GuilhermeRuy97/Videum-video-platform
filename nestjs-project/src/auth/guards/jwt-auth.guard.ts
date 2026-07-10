@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { BEARER_PREFIX } from '../auth.constants';
 import { JwtPayload } from '../auth.types';
+import { IS_OPTIONAL_AUTH_KEY } from '../decorators/optional-auth.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
@@ -24,12 +25,21 @@ export class JwtAuthGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
+    // Optional-auth routes (e.g. anonymous-watchable videos) accept the request
+    // with or without a token: a valid token attaches `request.user`; a missing or
+    // invalid one falls through as anonymous instead of a 401.
+    const isOptional = this.reflector.getAllAndOverride<boolean>(
+      IS_OPTIONAL_AUTH_KEY,
+      [context.getHandler(), context.getClass()],
+    );
+
     const request = context
       .switchToHttp()
       .getRequest<{ headers: Record<string, string>; user: unknown }>();
     const authHeader = request.headers?.authorization;
 
     if (!authHeader || !authHeader.startsWith(BEARER_PREFIX)) {
+      if (isOptional) return true;
       throw new UnauthorizedException();
     }
 
@@ -40,6 +50,7 @@ export class JwtAuthGuard implements CanActivate {
       request.user = payload;
       return true;
     } catch {
+      if (isOptional) return true;
       throw new UnauthorizedException();
     }
   }
