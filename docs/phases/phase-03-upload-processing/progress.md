@@ -1,13 +1,13 @@
 # phase-03-upload-processing — Progress
 
-**Status:** in_progress
+**Status:** completed
 **SIs:** 8/8 completed
 
 ### Definition of Done — status
 - **Unit + integration suite:** ✅ 31 suites / 186 tests green, jest exits cleanly (`npm test -- --runInBand`).
 - **E2E suite:** ✅ 6 suites / 66 tests green (`npm run test:e2e`).
 - **`npx tsc --noEmit`:** ✅ exit 0.
-- **`npm run lint`:** ⚠️ 193 errors, but **pre-existing and repo-wide** — broken at HEAD before Phase 03. `eslint.config.mjs` applies `tseslint.configs.recommendedTypeChecked`; a typescript-eslint bump (the "Npm audit fixes" commit, reflected in the modified `package-lock.json`) turned `no-unsafe-member-access` (111), `no-unsafe-assignment` (45), `require-await` (8) etc. into errors across `any`/mock-heavy **test files** (auth.e2e 48, auth.service.spec 45, mail 16, channels specs 21, …) plus 6 in one production file (`channels.service.ts` error handling). Confirmed by linting the committed, unmodified `auth.service.spec.ts` (45 errors). **All Phase-03 production code is lint-clean**; only the Phase-03 test files show the same test-file pattern. Resolution is a scope/policy decision (see below) — pending.
+- **`npm run lint`:** ✅ **0 errors** (23 `no-unsafe-argument` warnings remain — that rule is config-downgraded to a warning and does not fail lint). Started at 193 errors, all **pre-existing and repo-wide** — broken at HEAD before Phase 03 (a typescript-eslint bump via the "Npm audit fixes" commit, reflected in the modified `package-lock.json`, turned `recommendedTypeChecked` rules — `no-unsafe-member-access` 111, `no-unsafe-assignment` 45, `require-await` 8 — into errors across `any`/mock-heavy test files, plus 6 in `channels.service.ts` error handling). Confirmed pre-existing by linting the committed, unmodified `auth.service.spec.ts` (45 errors). Fixed in two passes: (1) Phase-03 files + `channels.service.ts` (committed with the phase), then (2) the remaining 144 in phase-01/02 test files, fixed **manually** per the user's choice over relaxing the config — typed supertest `res.body` accesses, typed mock objects as their entities (`as unknown as User/VerificationToken/RefreshToken`), de-async'd no-await mock impls, typed the shared `mailpit`/`create-test-data-source` helpers, and sidestepped the jest `unbound-method` false positive via a local `asMocks()` helper (production rules unchanged). Full suite re-verified green (186 + 66) after the fixes.
 
 **Test-infra fixes made while closing the DoD (pre-existing full-suite breakage the per-SI runs never exposed):**
 - `worker.module.spec` hung/failed — worker `forFeature` needed `[Video, User, Channel]` (User↔Channel inverse). (SI-03.6)
