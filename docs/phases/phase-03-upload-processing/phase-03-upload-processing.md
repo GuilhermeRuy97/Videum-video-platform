@@ -461,28 +461,28 @@ Linearized implementation order: SI-03.1, SI-03.2 (parallel roots) → SI-03.3 �
 
 ## Deliverables
 
-- [ ] SI-03.1 — Storage and Queue Infrastructure
-- [ ] SI-03.2 — Video Entity and Migration
-- [ ] SI-03.3 — StorageService (MinIO S3 adapter)
-- [ ] SI-03.4 — Endpoint POST /videos (draft creation + upload initiation)
-- [ ] SI-03.5 — Endpoint POST /videos/:publicId/complete (verify + enqueue)
-- [ ] SI-03.6 — Video Processing Worker (queue consumer + FFmpeg)
-- [ ] SI-03.7 — Upload Reconciliation Sweep (abandoned-upload safety-net)
-- [ ] SI-03.8 — Video Delivery Endpoints (streaming + download)
+- [x] SI-03.1 — Storage and Queue Infrastructure
+- [x] SI-03.2 — Video Entity and Migration
+- [x] SI-03.3 — StorageService (MinIO S3 adapter)
+- [x] SI-03.4 — Endpoint POST /videos (draft creation + upload initiation)
+- [x] SI-03.5 — Endpoint POST /videos/:publicId/complete (verify + enqueue)
+- [x] SI-03.6 — Video Processing Worker (queue consumer + FFmpeg)
+- [x] SI-03.7 — Upload Reconciliation Sweep (abandoned-upload safety-net)
+- [x] SI-03.8 — Video Delivery Endpoints (streaming + download)
 
 **Capability outcomes:**
 
-- [ ] Functional upload of files up to 10 GB via presigned direct-to-storage multipart (API out of the byte path)
-- [ ] Draft pre-registration on upload start + verified completion signal that reliably triggers processing
-- [ ] Automatic processing extracts duration/metadata and generates a thumbnail on a separate worker
-- [ ] Abandoned uploads are reconciled (rescued or failed) without manual intervention
-- [ ] Unique public URL per video (UUID v7 `public_id`)
-- [ ] Streaming playback and download via presigned, Range-native URLs
+- [x] Functional upload of files up to 10 GB via presigned direct-to-storage multipart (API out of the byte path)
+- [x] Draft pre-registration on upload start + verified completion signal that reliably triggers processing
+- [x] Automatic processing extracts duration/metadata and generates a thumbnail on a separate worker
+- [x] Abandoned uploads are reconciled (rescued or failed) without manual intervention
+- [x] Unique public URL per video (UUID v7 `public_id`)
+- [x] Streaming playback and download via presigned, Range-native URLs
 
 **Full test suites:**
 
-- [ ] Backend unit + integration tests pass (`docker compose exec nestjs-api npm test -- --runInBand`)
-- [ ] Backend E2E tests pass (`docker compose exec nestjs-api npm run test:e2e`)
-- [ ] TypeScript compiles cleanly (`docker compose exec nestjs-api npx tsc --noEmit`)
-- [ ] Lint passes (`docker compose exec nestjs-api npm run lint`)
-- [ ] Build succeeds (`docker compose exec nestjs-api npm run build`)
+- [x] Backend unit + integration tests pass (`docker compose exec nestjs-api npm test -- --runInBand`)
+- [x] Backend E2E tests pass (`docker compose exec nestjs-api npm run test:e2e`)
+- [x] TypeScript compiles cleanly (`docker compose exec nestjs-api npx tsc --noEmit`)
+- [x] Lint passes (`docker compose exec nestjs-api npm run lint`)
+- [x] Build succeeds (`docker compose exec nestjs-api npm run build`)
