@@ -48,3 +48,47 @@ export class TokenReuseDetectedException extends DomainException {
     );
   }
 }
+
+export class VideoNotFoundException extends DomainException {
+  constructor() {
+    super('VIDEO_NOT_FOUND', 404, 'Video not found');
+  }
+}
+
+export class NotVideoOwnerException extends DomainException {
+  constructor() {
+    super('NOT_VIDEO_OWNER', 403, 'You are not the owner of this video');
+  }
+}
+
+export class UploadAlreadyFinalizedException extends DomainException {
+  constructor() {
+    super('UPLOAD_ALREADY_FINALIZED', 409, 'Upload has already been finalized');
+  }
+}
+
+export class UploadObjectMissingException extends DomainException {
+  constructor() {
+    super(
+      'UPLOAD_OBJECT_MISSING',
+      422,
+      'Uploaded object was not found in storage',
+    );
+  }
+}
+
+export class UploadSizeMismatchException extends DomainException {
+  constructor() {
+    super(
+      'UPLOAD_SIZE_MISMATCH',
+      422,
+      'Uploaded size does not match the declared size',
+    );
+  }
+}
+
+export class VideoNotReadyException extends DomainException {
+  constructor() {
+    super('VIDEO_NOT_READY', 409, 'Video is not ready for playback');
+  }
+}

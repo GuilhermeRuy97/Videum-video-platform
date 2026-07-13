@@ -31,12 +31,20 @@ describe('Database migrations (integration)', () => {
 
     await dataSource.initialize();
 
-    await Promise.all([
-      ...MANAGED_TABLES.map((table) =>
-        dataSource.query(`DROP TABLE IF EXISTS "${table}" CASCADE`),
-      ),
-      dataSource.query(`DROP TABLE IF EXISTS "migrations" CASCADE`),
-    ]);
+    // Reset the auth schema this suite manages so `runMigrations` starts from a
+    // clean slate — idempotent on the persistent dev DB, not just a fresh one.
+    // Sequential (not Promise.all): concurrent `DROP ... CASCADE` on FK-
+    // interdependent tables (channels→users) deadlocks. The enum TYPE must be
+    // dropped explicitly too — `DROP TABLE` leaves it behind, so a leftover type
+    // (e.g. from this suite's own afterAll re-migrate) makes the migration's
+    // `CREATE TYPE` fail with "already exists" on the next run.
+    for (const table of MANAGED_TABLES) {
+      await dataSource.query(`DROP TABLE IF EXISTS "${table}" CASCADE`);
+    }
+    await dataSource.query(`DROP TABLE IF EXISTS "migrations" CASCADE`);
+    await dataSource.query(
+      `DROP TYPE IF EXISTS "verification_tokens_type_enum" CASCADE`,
+    );
   });
 
   afterAll(async () => {
