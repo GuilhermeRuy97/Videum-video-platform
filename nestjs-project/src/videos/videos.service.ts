@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Queue } from 'bullmq';
 import { Repository } from 'typeorm';
@@ -42,7 +42,9 @@ export interface VideoPlaybackResult {
 }
 
 @Injectable()
-export class VideosService {
+export class VideosService implements OnModuleInit {
+  private readonly logger = new Logger(VideosService.name);
+
   constructor(
     @InjectRepository(Video)
     private readonly videoRepository: Repository<Video>,
@@ -50,6 +52,28 @@ export class VideosService {
     @InjectQueue(VIDEO_PROCESSING_QUEUE)
     private readonly processingQueue: Queue<ProcessVideoJobData>,
   ) {}
+
+  /**
+   * Registers an error handler on the video-processing queue and waits for its
+   * Redis connection to be ready before the module is considered initialized.
+   *
+   * Awaiting readiness is what makes teardown deterministic: BullMQ's `Queue`
+   * connects lazily via an internal `init()` that rejects with "Connection is
+   * closed" if the connection is torn down (`app.close()`) before it settles.
+   * In fast e2e suites that race surfaced as an unhandled `Queue` `'error'`
+   * event, intermittently failing a random suite. Ensuring `init()` has
+   * resolved before any close means that rejection can never fire. The error
+   * listener additionally keeps a transient Redis blip in production from
+   * crashing the process with an unhandled `'error'` event.
+   */
+  async onModuleInit(): Promise<void> {
+    this.processingQueue.on('error', (err: Error) => {
+      this.logger.error(
+        `video-processing queue connection error: ${err.message}`,
+      );
+    });
+    await this.processingQueue.waitUntilReady();
+  }
 
   /**
    * Pre-registers a draft video and initiates a presigned direct-to-storage
